@@ -1,0 +1,52 @@
+## playbook.yaml
+---
+- hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: no
+  vars:
+    repo_path: /home/ubuntu/app
+  tasks:
+    - name: Run the equivalent of "apt-get update" as a separate step
+      apt:
+        update_cache: yes
+
+    - name: Install nodesource
+      shell: 'curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -'
+
+    - name: Install required packages
+      apt:
+        pkg:
+          - nginx
+          - nodejs
+
+    - name: Install pm2
+      npm:
+        name: pm2
+        global: yes
+        state: present
+
+    - name: Install packages based on package.json using the npm
+      npm:
+        path: '{{ repo_path }}'
+        state: present
+
+    - name: Start server
+      command: pm2 start index.js --name ansible-ec2
+      args:
+        chdir: '{{ repo_path }}'
+
+    - name: Remove files
+      file:
+        path: /etc/nginx/nginx.conf
+        state: absent
+
+    - name: Copy nginx.conf
+      copy:
+        src: ./nginx.conf
+        dest: /etc/nginx
+
+    - name: Restart nginx service
+      service:
+        name: nginx
+        state: restarted
